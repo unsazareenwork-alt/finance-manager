@@ -69,6 +69,10 @@ Finance Tracker is a **full-featured personal finance dashboard** that helps you
 - ✅ Dark/Light mode (if implemented)
 - ✅ Intuitive navigation
 - ✅ Loading states and feedback
+- **Predictive Expense Analysis:**
+- **Expense Tracking:** Log your income and expenses with categorical tagging.
+* **Visual Dashboards:** Interactive charts powered by `Chart.js` to visualize your spending habits.
+* **Responsive UI:** Built with React and Vite for a fast, modern experience.
 
 ---
 
