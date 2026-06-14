@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getPrediction } from './utils';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
@@ -45,10 +46,6 @@ function App() {
   const expense = filteredTransactions.filter(t => t.amount < 0).reduce((acc, t) => acc + Math.abs(t.amount), 0);
   const balance = income - expense;
   const progress = Math.min((savings / (targetAmount || 1)) * 100, 100);
-
-  const categorySpending = filteredTransactions
-    .filter(t => t.amount < 0)
-    .reduce((acc, t) => { acc[t.category] = (acc[t.category] || 0) + Math.abs(t.amount); return acc; }, {});
 
   const data = { labels: ['Income', 'Expenses'], datasets: [{ data: [income || 0, expense || 0], backgroundColor: ['#22c55e', '#ef4444'] }] };
 
@@ -97,6 +94,21 @@ function App() {
                     <div className="p-6 bg-red-50 rounded border border-red-200 text-center"><p>Expenses</p><p className="text-2xl font-bold text-red-600">-${expense.toFixed(2)}</p></div>
                   </div>
                   <div className="text-center text-xl font-bold">Balance: ${balance.toFixed(2)}</div>
+                  
+                  {/* Predicted Expense Display */}
+                  {(() => {
+                    const expenseData = transactions
+                      .filter(t => t.date === filter && t.amount < 0)
+                      .map((t, index) => ({ month: index + 1, amount: Math.abs(t.amount) }));
+                    const prediction = getPrediction(expenseData);
+                    return expenseData.length >= 2 ? (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center mt-4">
+                        <p className="text-sm text-blue-700 font-medium">Predicted Expenses for Next Month</p>
+                        <p className="text-xl font-bold text-blue-900">${prediction.toFixed(2)}</p>
+                      </div>
+                    ) : null;
+                  })()}
+
                   {(income > 0 || expense > 0) && <div className="w-48 h-48 mx-auto"><Doughnut data={data} /></div>}
                 </div>
               )}
@@ -104,7 +116,7 @@ function App() {
               {activeTab === 'add' && (
                 <form onSubmit={addTransaction} className="space-y-6">
                   <input placeholder="Description" value={text} onChange={(e) => setText(e.target.value)} className="w-full p-4 border rounded" />
-                  <input type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-4 border rounded" />
+                  <input type="number" placeholder="Amount (use negative for expense)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-4 border rounded" />
                   <select className="w-full p-4 border rounded" onChange={(e) => setCategory(e.target.value)} value={category}>
                     {['General', 'Food', 'Rent', 'Transport', 'Entertainment'].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -131,3 +143,7 @@ function App() {
 }
 
 export default App;
+
+
+
+
