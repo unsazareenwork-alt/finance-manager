@@ -7,11 +7,26 @@ import 'react-loading-skeleton/dist/skeleton.css';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
+// Anomaly Detection Helper
+const checkTransactionAnomaly = (newTransaction, allTransactions) => {
+  const history = allTransactions.filter(t => 
+    t.category === newTransaction.category && 
+    new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  );
+  if (history.length < 5) return false;
+  const amounts = history.map(t => Math.abs(t.amount));
+  const mean = amounts.reduce((a, b) => a + b) / amounts.length;
+  const stdDev = Math.sqrt(amounts.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / amounts.length);
+  const zScore = (Math.abs(newTransaction.amount) - mean) / (stdDev || 1);
+  return zScore > 2;
+};
+
 function App() {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState(() => JSON.parse(localStorage.getItem('transactions')) || []);
   const [savings, setSavings] = useState(() => parseFloat(localStorage.getItem('savings')) || 0);
   const [targetAmount, setTargetAmount] = useState(() => parseFloat(localStorage.getItem('targetAmount')) || 1000);
+  const [anomalyAlert, setAnomalyAlert] = useState(null);
   
   const [text, setText] = useState('');
   const [amount, setAmount] = useState('');
@@ -33,41 +48,41 @@ function App() {
   const addTransaction = (e) => {
     e.preventDefault();
     if (!text || !amount) return;
-    setTransactions([...transactions, { id: Date.now(), text, amount: parseFloat(amount), category, date: new Date().toISOString().slice(0, 7) }]);
+    const newTransaction = { id: Date.now(), text, amount: parseFloat(amount), category, date: new Date().toISOString().slice(0, 7) };
+    const isAnomaly = checkTransactionAnomaly(newTransaction, transactions);
+    if (isAnomaly) {
+        setAnomalyAlert(`Warning: Unusual spending in ${category}!`);
+        setTimeout(() => setAnomalyAlert(null), 5000);
+    }
+    setTransactions([...transactions, { ...newTransaction, is_anomaly: isAnomaly }]);
     setText(''); setAmount(''); setCategory('General');
   };
 
-  const deleteTransaction = (id) => {
-    setTransactions(transactions.filter(t => t.id !== id));
-  };
+  const deleteTransaction = (id) => setTransactions(transactions.filter(t => t.id !== id));
 
   const filteredTransactions = transactions.filter(t => t.date === filter);
   const income = filteredTransactions.filter(t => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
   const expense = filteredTransactions.filter(t => t.amount < 0).reduce((acc, t) => acc + Math.abs(t.amount), 0);
   const balance = income - expense;
   const progress = Math.min((savings / (targetAmount || 1)) * 100, 100);
-
   const data = { labels: ['Income', 'Expenses'], datasets: [{ data: [income || 0, expense || 0], backgroundColor: ['#22c55e', '#ef4444'] }] };
 
   return (
     <SkeletonTheme baseColor="#f3f4f6" highlightColor="#e5e7eb">
       <div className="min-h-screen w-full bg-gray-50 p-6 md:p-10">
         <div className="max-w-5xl mx-auto bg-white p-8 shadow-sm rounded-xl border border-gray-100">
-          
-          {loading ? (
-            <div className="space-y-8">
-              <Skeleton height={40} width="50%" className="mx-auto" />
-              <Skeleton height={50} />
-              <div className="grid grid-cols-2 gap-4"><Skeleton height={100} /><Skeleton height={100} /></div>
-              <Skeleton height={200} />
-            </div>
-          ) : (
+          {loading ? <Skeleton height={300} /> : (
             <>
-              <h2 className="text-3xl font-bold mb-8 text-gray-800 text-center">Personal Finance Manager</h2>
-
+              {anomalyAlert && (
+                <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold flex justify-between items-center rounded shadow-lg animate-pulse">
+                  <span>⚠️ {anomalyAlert}</span>
+                  <button onClick={() => setAnomalyAlert(null)}>✕</button>
+                </div>
+              )}
+              <h2 className="text-3xl font-bold mb-8 text-center text-gray-800">Personal Finance Manager</h2>
               <div className="flex border-b mb-8">
                 {['dashboard', 'add', 'history'].map((tab) => (
-                  <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 capitalize text-lg font-semibold ${activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 capitalize font-semibold ${activeTab === tab ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-400'}`}>
                     {tab}
                   </button>
                 ))}
@@ -76,30 +91,38 @@ function App() {
               {activeTab === 'dashboard' && (
                 <div className="space-y-6">
                   <input type="month" value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full p-3 border rounded" />
+                  
+                  {/* Savings Pot with Controls */}
                   <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 text-center">
-                    <p className="text-sm font-medium text-yellow-700"> Savings Pot</p>
+                    <p className="text-sm font-medium text-yellow-700">Savings Pot</p>
                     <p className="text-3xl font-bold text-yellow-600 my-2">${savings.toFixed(2)}</p>
                     <div className="flex justify-center gap-4">
                       <button onClick={() => setSavings(s => s + 50)} className="bg-yellow-200 px-6 py-2 rounded font-bold">+</button>
                       <button onClick={() => setSavings(s => Math.max(0, s - 50))} className="bg-yellow-200 px-6 py-2 rounded font-bold">-</button>
                     </div>
                   </div>
+
+                  {/* Goal Tracking */}
                   <div className="p-6 bg-white border border-gray-200 rounded-lg">
-                    <div className="flex justify-between mb-2"><p className="font-semibold">Goal: ${targetAmount}</p><p className="font-bold text-blue-600">{progress.toFixed(0)}%</p></div>
-                    <div className="w-full bg-gray-200 rounded-full h-4"><div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${progress}%` }}></div></div>
+                    <div className="flex justify-between mb-2">
+                      <p className="font-semibold">Goal: ${targetAmount}</p>
+                      <p className="font-bold text-blue-600">{progress.toFixed(0)}%</p>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-4">
+                      <div className="bg-blue-600 h-4 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
+                    </div>
                     <input type="number" placeholder="Update Goal" onChange={(e) => setTargetAmount(parseFloat(e.target.value) || 0)} className="mt-4 w-full p-2 border rounded" />
                   </div>
+
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="p-6 bg-green-50 rounded border border-green-200 text-center"><p>Income</p><p className="text-2xl font-bold text-green-600">+${income.toFixed(2)}</p></div>
                     <div className="p-6 bg-red-50 rounded border border-red-200 text-center"><p>Expenses</p><p className="text-2xl font-bold text-red-600">-${expense.toFixed(2)}</p></div>
                   </div>
-                  <div className="text-center text-xl font-bold">Balance: ${balance.toFixed(2)}</div>
                   
-                  {/* Predicted Expense Display */}
+                  {(income > 0 || expense > 0) && <div className="w-48 h-48 mx-auto"><Doughnut data={data} /></div>}
+                  
                   {(() => {
-                    const expenseData = transactions
-                      .filter(t => t.date === filter && t.amount < 0)
-                      .map((t, index) => ({ month: index + 1, amount: Math.abs(t.amount) }));
+                    const expenseData = transactions.filter(t => t.date === filter && t.amount < 0).map((t, index) => ({ month: index + 1, amount: Math.abs(t.amount) }));
                     const prediction = getPrediction(expenseData);
                     return expenseData.length >= 2 ? (
                       <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center mt-4">
@@ -108,15 +131,13 @@ function App() {
                       </div>
                     ) : null;
                   })()}
-
-                  {(income > 0 || expense > 0) && <div className="w-48 h-48 mx-auto"><Doughnut data={data} /></div>}
                 </div>
               )}
 
               {activeTab === 'add' && (
                 <form onSubmit={addTransaction} className="space-y-6">
                   <input placeholder="Description" value={text} onChange={(e) => setText(e.target.value)} className="w-full p-4 border rounded" />
-                  <input type="number" placeholder="Amount (use negative for expense)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-4 border rounded" />
+                  <input type="number" placeholder="Amount (negative for expense)" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-4 border rounded" />
                   <select className="w-full p-4 border rounded" onChange={(e) => setCategory(e.target.value)} value={category}>
                     {['General', 'Food', 'Rent', 'Transport', 'Entertainment'].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -127,8 +148,11 @@ function App() {
               {activeTab === 'history' && (
                 <ul className="space-y-4">
                   {filteredTransactions.map(t => (
-                    <li key={t.id} className="flex justify-between items-center p-4 bg-gray-50 rounded border">
-                      <div><p className="font-medium text-lg">{t.text}</p><p className="text-xs text-gray-400 uppercase">{t.category}</p></div>
+                    <li key={t.id} className={`flex justify-between items-center p-4 rounded border ${t.is_anomaly ? 'bg-red-50 border-red-200' : 'bg-gray-50'}`}>
+                      <div>
+                        <p className="font-medium text-lg">{t.text} {t.is_anomaly && '⚠️'}</p>
+                        <p className="text-xs text-gray-400 uppercase">{t.category}</p>
+                      </div>
                       <button onClick={() => deleteTransaction(t.id)} className="text-red-500 font-bold p-2">✕</button>
                     </li>
                   ))}
@@ -143,7 +167,3 @@ function App() {
 }
 
 export default App;
-
-
-
-
