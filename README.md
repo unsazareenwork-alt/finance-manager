@@ -42,12 +42,17 @@ A modern, responsive personal finance management tool designed to track your dai
    git clone <your-repository-url>
    cd expense-tracker
 
-## Features
-* **Monthly Data Filtering:** Track spending trends over time.
-* **Goal Tracking:** Gamified visual progress bars for saving targets.
-* **Category Analysis:** Dynamic spending breakdown by category.
-* **Data Persistence:** LocalStorage integration to save data locally.
-* **Professional UI:** Modern skeleton loading screens and tabbed navigation.
+### 🎨 User Experience
+- ✅ Clean, modern dashboard interface
+- ✅ Responsive mobile design
+- ✅ Smooth animations and transitions
+- ✅ Dark/Light mode (if implemented)
+- ✅ Intuitive navigation
+- ✅ Loading states and feedback
+- **Predictive Expense Analysis:**
+- **Expense Tracking:** Log your income and expenses with categorical tagging.
+* **Visual Dashboards:** Interactive charts powered by `Chart.js` to visualize your spending habits.
+* **Responsive UI:** Built with React and Vite for a fast, modern experience.
 
 ## How to run
 1. Clone the repo: `git clone <your-repo-url>`
