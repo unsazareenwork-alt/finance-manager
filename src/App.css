@@ -182,3 +182,14 @@
     border-right-color: var(--border);
   }
 }
+
+.anomaly-highlight {
+  background-color: #fef2f2; 
+  border: 1px solid #fecaca;
+  transition: all 0.3s ease;
+}
+
+.anomaly-warning-text {
+  color: #dc2626; 
+  font-weight: 600;
+}
